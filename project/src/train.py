@@ -5,17 +5,20 @@ from torch.optim import Adam
 from dataset import ChocoDataset
 from model import ChocoNet
 import os
+from sklearn.model_selection import train_test_split
+import pandas as pd
 
 
-# # 路径设置
-# REFERENCE_DIR = "../../dataset_project_iapr2025/references"
-# TRAIN_IMG_DIR = "../../dataset_project_iapr2025/train"
-# CSV_PATH = "../../dataset_project_iapr2025/train.csv"
-# OUTPUT_DIR = "../../dataset_cnn"
-# os.makedirs(OUTPUT_DIR, exist_ok=True)
 # 设置路径
-csv_path = '../../dataset_project_iapr2025/train.csv'
-img_dir = '../../dataset_project_iapr2025/train'
+##augmented
+csv_path = '../../dataset_project_iapr2025/train_augmented.csv'
+img_dir = '../../dataset_project_iapr2025/augmented_images'
+# ##original
+# csv_path = '../../dataset_project_iapr2025/train.csv'
+# img_dir = '../../dataset_project_iapr2025/train'
+##划分验证集和训练集
+df = pd.read_csv(csv_path)
+train_df,val_df = train_test_split(df,test_size=0.2,random_state=42, shuffle=True)
 
 # 数据加载
 dataset = ChocoDataset(csv_file=csv_path, img_dir=img_dir)
@@ -23,14 +26,15 @@ dataloader = DataLoader(dataset, batch_size=8, shuffle=True)
 
 # 模型初始化
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print("Device:", device)
 model = ChocoNet(num_classes=13).to(device)
 
 # 损失函数 & 优化器
 criterion = torch.nn.MSELoss()
-optimizer = Adam(model.parameters(), lr=1e-3)
+optimizer = Adam(model.parameters(), lr=1e-4)
 
 # 训练过程
-epochs = 150
+epochs =30
 for epoch in range(epochs):
     model.train()
     total_loss = 0

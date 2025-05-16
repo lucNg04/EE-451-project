@@ -11,7 +11,7 @@ class ChocoDataset(Dataset):
         self.labels_df = pd.read_csv(csv_file)
         self.img_dir = img_dir
         self.transform = transform or T.Compose([
-            T.Resize((224, 224)),
+            T.Resize((330, 220)),
             T.ToTensor()
         ])
         self.image_ids = self.labels_df['id'].astype(str)
@@ -24,6 +24,7 @@ class ChocoDataset(Dataset):
         img_id = self.image_ids.iloc[idx]
         img_path = os.path.join(self.img_dir, f"L{img_id}.JPG")
         image = Image.open(img_path).convert("RGB")
+
         image = self.transform(image)
         label = torch.tensor(self.labels[idx], dtype=torch.float32)
         return image, label

@@ -11,8 +11,10 @@ import os
 
 
 # 设置路径
-test_img_dir = '../dataset_project_iapr2025/test/'
-sample_csv = 'sample_submission.csv'  # 用于获取列名和 id
+# test_img_dir = '../dataset_project_iapr2025/train/'
+# sample_csv = 'sample_submission.csv'  # 用于获取列名和 id
+test_img_dir = '../dataset_project_iapr2025/augmented_images/'
+sample_csv = '../dataset_project_iapr2025/train_augmented.csv'  # 用于获取列名和 id
 model_path = 'src/weights/choco_model.pth'
 output_csv = 'submission.csv'
 
@@ -47,7 +49,7 @@ from PIL import Image
 import torchvision.transforms as T
 
 transform = T.Compose([
-    T.Resize((224, 224)),
+    T.Resize((330, 220)),
     T.ToTensor()
 ])
 
