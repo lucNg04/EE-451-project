@@ -11,12 +11,16 @@ import os
 
 
 # 设置路径
+test_img_dir = '../dataset_project_iapr2025/test/'
+sample_csv = 'sample_submission.csv'  # 用于获取列名和 id
 # test_img_dir = '../dataset_project_iapr2025/train/'
-# sample_csv = 'sample_submission.csv'  # 用于获取列名和 id
-test_img_dir = '../dataset_project_iapr2025/augmented_images/'
-sample_csv = '../dataset_project_iapr2025/train_augmented.csv'  # 用于获取列名和 id
+# sample_csv = '../dataset_project_iapr2025/train.csv'  # 用于获取列名和 id
 model_path = 'src/weights/choco_model.pth'
+#model_path='src/weights/best_model.pth'
 output_csv = 'submission.csv'
+#MLP CASE
+# model_path='src/weights/choco_model_MLP.pth'
+# output_csv='submission_MLP.csv'
 
 # 读取测试 ID 列表（可以用 train.csv 的结构）
 df = pd.read_csv(sample_csv)
@@ -49,7 +53,7 @@ from PIL import Image
 import torchvision.transforms as T
 
 transform = T.Compose([
-    T.Resize((330, 220)),
+    T.Resize((224, 224)),
     T.ToTensor()
 ])
 

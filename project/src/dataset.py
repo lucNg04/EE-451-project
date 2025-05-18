@@ -7,11 +7,15 @@ from torch.utils.data import Dataset
 import torchvision.transforms as T
 
 class ChocoDataset(Dataset):
-    def __init__(self, csv_file, img_dir, transform=None):
-        self.labels_df = pd.read_csv(csv_file)
+    def __init__(self, csv_file_or_df, img_dir, transform=None):
+        if isinstance(csv_file_or_df, str):
+            self.labels_df = pd.read_csv(csv_file_or_df)
+        else:
+            self.labels_df = csv_file_or_df.reset_index(drop=True)
+        #self.labels_df = pd.read_csv(csv_file)
         self.img_dir = img_dir
         self.transform = transform or T.Compose([
-            T.Resize((330, 220)),
+            T.Resize((224, 224)),
             T.ToTensor()
         ])
         self.image_ids = self.labels_df['id'].astype(str)
