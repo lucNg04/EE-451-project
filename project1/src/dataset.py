@@ -38,7 +38,9 @@ class YoloDataset(Dataset):
                     parts = line.strip().split()
                     if len(parts) == 5:
                         cls, x, y, w, h = map(float, parts)
+
                         labels.append([cls, x, y, w, h])
+
         labels = torch.tensor(labels, dtype=torch.float32)
 
         return image, labels

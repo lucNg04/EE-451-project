@@ -19,12 +19,16 @@ class SimpleBackbone(nn.Module):
             self._extra_block(256, 128, 256),
             self._extra_block(256, 128, 256)
         ])
+        
+        # 添加Dropout层
+        self.dropout = nn.Dropout(0.2)
 
     def _conv_block(self, in_c, out_c, stride):
         return nn.Sequential(
             nn.Conv2d(in_c, out_c, kernel_size=3, stride=stride, padding=1),
             nn.BatchNorm2d(out_c),
-            nn.SiLU()
+            nn.SiLU(),
+            nn.Dropout2d(0.1)  # 添加空间Dropout
         )
 
     def _ds_block(self, in_c, out_c):
@@ -32,7 +36,8 @@ class SimpleBackbone(nn.Module):
             nn.Conv2d(in_c, in_c, kernel_size=3, stride=2, padding=1, groups=in_c),
             nn.Conv2d(in_c, out_c, kernel_size=1),
             nn.BatchNorm2d(out_c),
-            nn.SiLU()
+            nn.SiLU(),
+            nn.Dropout2d(0.1)  # 添加空间Dropout
         )
 
     def _extra_block(self, in_c, mid_c, out_c):
@@ -40,7 +45,9 @@ class SimpleBackbone(nn.Module):
             nn.Conv2d(in_c, mid_c, kernel_size=1),
             nn.SiLU(),
             nn.Conv2d(mid_c, out_c, kernel_size=3, stride=2, padding=1),
-            nn.SiLU()
+            nn.BatchNorm2d(out_c),  # 添加BatchNorm
+            nn.SiLU(),
+            nn.Dropout2d(0.1)  # 添加空间Dropout
         )
 
     def forward(self, x):
@@ -57,8 +64,8 @@ def create_model(num_classes=13, image_size=(640, 640)):
     out_channels = [512, 512, 256, 256, 256]
 
     anchor_gen = DefaultBoxGenerator(
-        aspect_ratios=[[0.5, 1.0, 2.0]] * 5,
-        scales=[0.1, 0.2, 0.35, 0.5, 0.7, 0.9]
+        aspect_ratios=[[0.5, 0.7, 1.0, 1.5, 2.0]] * 5,  # 增加更多的宽高比
+        scales=[0.05, 0.1, 0.15, 0.2, 0.3, 0.4, 0.5]    # 增加更多的尺度
     )
 
     model = SSD(
