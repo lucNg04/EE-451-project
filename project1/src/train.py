@@ -15,7 +15,7 @@ VAL_LABEL_DIR = '../validation/obj_train_data/'
 
 NUM_CLASSES = 14
 BATCH_SIZE = 4
-EPOCHS = 50  # 增加训练轮数
+EPOCHS = 100  # 增加训练轮数
 LEARNING_RATE = 1e-3  # 提高初始学习率
 WEIGHT_DECAY = 1e-4
 DEVICE = torch.device("cpu")
@@ -66,6 +66,7 @@ def evaluate(model, dataloader):
 
 def train():
     # 创建训练集和验证集
+    torch.cuda.empty_cache()
     train_dataset = YoloDataset(IMG_DIR, LABEL_DIR, img_size=(900, 600))
     print(f"训练集大小: {len(train_dataset)}")
     if len(train_dataset) == 0:

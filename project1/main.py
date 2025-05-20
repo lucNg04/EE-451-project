@@ -16,7 +16,7 @@ from src.model import create_model
 
 # 配置路径
 TEST_DIR = r'../dataset_project_iapr2025/test/'
-MODEL_PATH = "src/model_epoch_30.pth"
+MODEL_PATH = "src/best_model.pth"
 NAMES_PATH = "data/obj.names"
 SAMPLE_CSV_PATH = "../dataset_project_iapr2025/sample_submission.csv"
 OUTPUT_CSV_PATH = "submission.csv"
@@ -53,7 +53,7 @@ for img_id in sample_df[first_col_name]:
         continue
 
     image = Image.open(image_path).convert("RGB")
-    image = F.resize(image, (640, 640))
+    image = F.resize(image, (900, 600))
     image_tensor = F.to_tensor(image).unsqueeze(0).to(DEVICE)
 
     with torch.no_grad():
@@ -64,7 +64,7 @@ for img_id in sample_df[first_col_name]:
     # 初始化统计字典
     count_dict = {name: 0 for name in column_names[1:]}  # 与 CSV 保持顺序
     for label, score in zip(preds["labels"], preds["scores"]):
-        if score >= 0.5 :
+        if score >= 0.6 :
             class_id = label.item()
             if 0 <= class_id < NUM_CLASSES:
                 name = class_names[class_id]
