@@ -5,14 +5,14 @@ import cv2
 import numpy as np
 
 class YoloDataset(Dataset):
-    def __init__(self, img_dir, label_dir, img_size=(640, 640), transform=None):
+    def __init__(self, img_dir, label_dir, img_size=(900, 600), transform=None):
         self.img_dir = img_dir
         self.label_dir = label_dir
         self.img_size = img_size
         self.transform = transform
         self.image_filenames = [
             f for f in os.listdir(self.img_dir)
-            if f.endswith('.JPG') or f.endswith('.png')
+            if f.endswith('.JPG') or f.endswith('.jpg')
         ]
 
     def __len__(self):
@@ -38,9 +38,7 @@ class YoloDataset(Dataset):
                     parts = line.strip().split()
                     if len(parts) == 5:
                         cls, x, y, w, h = map(float, parts)
-
                         labels.append([cls, x, y, w, h])
-
         labels = torch.tensor(labels, dtype=torch.float32)
 
         return image, labels

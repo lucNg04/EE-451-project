@@ -1,71 +1,62 @@
+# 0.71 baseline-improve?
 import torch
 from torch import nn
 from torchvision.models.detection.ssd import SSD, SSDHead, DefaultBoxGenerator
+from torchvision.models import mobilenet_v2
+from collections import OrderedDict
 
-class SimpleBackbone(nn.Module):
+class MobileNetV2BackboneWithExtras(nn.Module):
     def __init__(self):
         super().__init__()
-        self.layers = nn.Sequential(
-            self._conv_block(3, 32, stride=2),
-            self._conv_block(32, 64, stride=1),
-            self._ds_block(64, 128),
-            self._ds_block(128, 256),
-            self._ds_block(256, 512)
-        )
+        base = mobilenet_v2(weights=None)
+        # 只取features部分
+        self.features = nn.Sequential(*list(base.features))
+        # MobileNetV2最后一层输出1280通道
 
+        # 增强的特征提取层，添加更多卷积层来提取形状特征
         self.extra = nn.ModuleList([
-            self._extra_block(512, 256, 512),
-            self._extra_block(512, 128, 256),
-            self._extra_block(256, 128, 256),
-            self._extra_block(256, 128, 256)
+            nn.Sequential(
+                nn.Conv2d(1280, 512, kernel_size=1),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(512, 512, kernel_size=3, stride=2, padding=1),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1),  # 添加额外的卷积层
+                nn.ReLU(inplace=True)
+            ),
+            nn.Sequential(
+                nn.Conv2d(512, 256, kernel_size=1),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(256, 256, kernel_size=3, stride=2, padding=1),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1),  # 添加额外的卷积层
+                nn.ReLU(inplace=True)
+            ),
+            nn.Sequential(
+                nn.Conv2d(256, 256, kernel_size=1),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(256, 256, kernel_size=3, stride=2, padding=1),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1),  # 添加额外的卷积层
+                nn.ReLU(inplace=True)
+            ),
         ])
-        
-        # 添加Dropout层
-        self.dropout = nn.Dropout(0.2)
-
-    def _conv_block(self, in_c, out_c, stride):
-        return nn.Sequential(
-            nn.Conv2d(in_c, out_c, kernel_size=3, stride=stride, padding=1),
-            nn.BatchNorm2d(out_c),
-            nn.SiLU(),
-            nn.Dropout2d(0.1)  # 添加空间Dropout
-        )
-
-    def _ds_block(self, in_c, out_c):
-        return nn.Sequential(
-            nn.Conv2d(in_c, in_c, kernel_size=3, stride=2, padding=1, groups=in_c),
-            nn.Conv2d(in_c, out_c, kernel_size=1),
-            nn.BatchNorm2d(out_c),
-            nn.SiLU(),
-            nn.Dropout2d(0.1)  # 添加空间Dropout
-        )
-
-    def _extra_block(self, in_c, mid_c, out_c):
-        return nn.Sequential(
-            nn.Conv2d(in_c, mid_c, kernel_size=1),
-            nn.SiLU(),
-            nn.Conv2d(mid_c, out_c, kernel_size=3, stride=2, padding=1),
-            nn.BatchNorm2d(out_c),  # 添加BatchNorm
-            nn.SiLU(),
-            nn.Dropout2d(0.1)  # 添加空间Dropout
-        )
 
     def forward(self, x):
-        features = {}
-        x = self.layers(x)
-        features["0"] = x
-        for i, layer in enumerate(self.extra):
-            x = layer(x)
-            features[str(i + 1)] = x
-        return features
+      features = OrderedDict()
+      x = self.features(x)
+      features["0"] = x
+      for i, layer in enumerate(self.extra):
+          x = layer(x)
+          features[str(i + 1)] = x
+      return features
 
-def create_model(num_classes=13, image_size=(640, 640)):
-    backbone = SimpleBackbone()
-    out_channels = [512, 512, 256, 256, 256]
+def create_model(num_classes=14, image_size=(900, 600)):
+    backbone = MobileNetV2BackboneWithExtras()
+    out_channels = [1280, 512, 256, 256]  # 对应每个特征层的通道数
 
     anchor_gen = DefaultBoxGenerator(
-        aspect_ratios=[[0.5, 0.7, 1.0, 1.5, 2.0]] * 5,  # 增加更多的宽高比
-        scales=[0.05, 0.1, 0.15, 0.2, 0.3, 0.4, 0.5]    # 增加更多的尺度
+        aspect_ratios=[[0.5, 0.75, 1.0, 1.25, 1.5, 2.0]] * 4,  # 增加更多的宽高比
+        scales=[0.1, 0.15, 0.2, 0.3, 0.4, 0.6]  # 增加更多的尺度
     )
 
     model = SSD(
@@ -80,8 +71,3 @@ def create_model(num_classes=13, image_size=(640, 640)):
         )
     )
     return model
-
-if __name__ == "__main__":
-    model = create_model(num_classes=13)
-    total = sum(p.numel() for p in model.parameters())
-    print(f"Total Parameters: {total / 1e6:.2f}M")

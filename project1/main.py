@@ -64,7 +64,7 @@ for img_id in sample_df[first_col_name]:
     # 初始化统计字典
     count_dict = {name: 0 for name in column_names[1:]}  # 与 CSV 保持顺序
     for label, score in zip(preds["labels"], preds["scores"]):
-        if score >= 0.5:
+        if score >= 0.5 :
             class_id = label.item()
             if 0 <= class_id < NUM_CLASSES:
                 name = class_names[class_id]

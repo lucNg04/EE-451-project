@@ -1,6 +1,6 @@
 import os
 
-label_dir = "../validation/obj_train_data/"
+label_dir = "../data/obj_train_data/"
 for file in os.listdir(label_dir):
     if file.endswith(".txt"):
         path = os.path.join(label_dir, file)

@@ -10,7 +10,7 @@ IMG_DIR = '../../dataset_project_iapr2025/train/'
 LABEL_DIR = '../data/obj_train_data/'
 
 # 创建 Dataset 和 DataLoader
-dataset = YoloDataset(img_dir=IMG_DIR, label_dir=LABEL_DIR, img_size=(640, 640))
+dataset = YoloDataset(img_dir=IMG_DIR, label_dir=LABEL_DIR, img_size=(900, 600))
 dataloader = DataLoader(dataset, batch_size=1, shuffle=True)
 
 # 获取一个 batch
@@ -22,7 +22,7 @@ label = labels[0].numpy()
 fig, ax = plt.subplots(1)
 ax.imshow(image)
 
-h, w = 640, 640  # 因为我们 resize 到这个尺寸
+h, w = 600, 900  # 因为我们 resize 到这个尺寸
 
 for box in label:
     cls_id, cx, cy, bw, bh = box

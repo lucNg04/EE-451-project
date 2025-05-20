@@ -4,7 +4,8 @@ from torch.utils.data import DataLoader
 from dataset import YoloDataset
 from model import create_model
 import time
-from torch.optim.lr_scheduler import CosineAnnealingLR
+from torch.optim.lr_scheduler import OneCycleLR
+import numpy as np
 
 # 配置
 IMG_DIR = '../../dataset_project_iapr2025/train/'
@@ -14,10 +15,10 @@ VAL_LABEL_DIR = '../validation/obj_train_data/'
 
 NUM_CLASSES = 14
 BATCH_SIZE = 4
-EPOCHS = 60
-LEARNING_RATE = 5e-4  # 降低初始学习率
-WEIGHT_DECAY = 1e-4   # 添加权重衰减
-DEVICE = torch.device("cuda")
+EPOCHS = 50  # 增加训练轮数
+LEARNING_RATE = 1e-3  # 提高初始学习率
+WEIGHT_DECAY = 1e-4
+DEVICE = torch.device("cpu")
 print(DEVICE)
 
 def collate_fn(batch):
@@ -30,28 +31,16 @@ def collate_fn(batch):
             classes = []
             for l in labels:
                 cls, cx, cy, w, h = l.tolist()
-                x1 = (cx - w / 2) * 640
-                y1 = (cy - h / 2) * 640
-                x2 = (cx + w / 2) * 640
-                y2 = (cy + h / 2) * 640
+                x1 = (cx - w / 2) * 900
+                y1 = (cy - h / 2) * 600
+                x2 = (cx + w / 2) * 900
+                y2 = (cy + h / 2) * 600
                 boxes.append([x1, y1, x2, y2])
                 classes.append(int(cls))
             targets[i]['boxes'] = torch.tensor(boxes, dtype=torch.float32)
             targets[i]['labels'] = torch.tensor(classes, dtype=torch.int64)
-        #print("Batch labels:", classes)
     return torch.stack(images), targets
-# def validate(model, val_loader, device):
-#     model.eval()
-#     print("\n🔍 Running validation...")
-#
-#     with torch.no_grad():
-#         for idx, (images, _) in enumerate(val_loader):
-#             images = images.to(device)
-#             preds = model(images)
-#             for i, pred in enumerate(preds):
-#                 labels = pred["labels"].tolist()
-#                 print(f"[VAL] Sample {idx}-{i} → Predicted labels: {labels}")
-#     model.train()
+
 def evaluate(model, dataloader):
     model.eval()
     total_val_loss = 0
@@ -60,56 +49,52 @@ def evaluate(model, dataloader):
             images = images.to(DEVICE)
             targets = [{k: v.to(DEVICE) for k, v in t.items()} for t in targets]
 
-            # 将模型移动到CPU进行评估
-            model = model.cpu()
-            images = images.cpu()
-            targets = [{k: v.cpu() for k, v in t.items()} for t in targets]
-
+            # 在评估模式下，我们需要显式地计算损失
             loss_dict = model(images, targets)
             if isinstance(loss_dict, dict):
                 losses = sum(loss for loss in loss_dict.values())
             else:
-                model.train()
+                # 如果返回的是检测结果，我们需要重新计算损失
+                model.train()  # 临时切换到训练模式来计算损失
                 loss_dict = model(images, targets)
-                losses=sum(loss for loss in loss_dict.values())
-                model.eval()
-            total_val_loss += losses.item()
+                losses = sum(loss for loss in loss_dict.values())
+                model.eval()  # 切换回评估模式
 
-            # 将模型移回GPU
-            model = model.to(DEVICE)
+            total_val_loss += losses.item()
 
     return total_val_loss / len(dataloader)
 
-
-
 def train():
-    #train
-    dataset = YoloDataset(IMG_DIR, LABEL_DIR, img_size=(640, 640))
-    dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True, collate_fn=collate_fn)
-    #validate
-    val_dataset = YoloDataset(VAL_IMG_DIR, VAL_LABEL_DIR, img_size=(640, 640))
+    # 创建训练集和验证集
+    train_dataset = YoloDataset(IMG_DIR, LABEL_DIR, img_size=(900, 600))
+    print(f"训练集大小: {len(train_dataset)}")
+    if len(train_dataset) == 0:
+        print(f"警告：训练集为空！")
+        print(f"检查路径：")
+        print(f"图像目录: {os.path.abspath(IMG_DIR)}")
+        print(f"标签目录: {os.path.abspath(LABEL_DIR)}")
+        return
+        
+    train_dataloader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, collate_fn=collate_fn)
+
+    val_dataset = YoloDataset(VAL_IMG_DIR, VAL_LABEL_DIR, img_size=(900, 600))
     val_dataloader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, collate_fn=collate_fn)
 
-    model = create_model(num_classes=NUM_CLASSES).to(DEVICE)
+    model = create_model(num_classes=NUM_CLASSES)
+    model = model.to(DEVICE)
 
-    # 修改优化器配置
-    optimizer = torch.optim.AdamW(
-        model.parameters(),
-        lr=LEARNING_RATE,
-        weight_decay=WEIGHT_DECAY,
-        betas=(0.9, 0.999)
-    )
-    
-    # 添加学习率调度器
-    scheduler = CosineAnnealingLR(optimizer, T_max=EPOCHS, eta_min=LEARNING_RATE/10)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=LEARNING_RATE)
 
-    model.train()
     best_val_loss = float('inf')
+    model.train()
+
     for epoch in range(EPOCHS):
         total_loss = 0
         start = time.time()
+
+        # 训练阶段
         model.train()
-        for images, targets in dataloader:
+        for images, targets in train_dataloader:
             images = images.to(DEVICE)
             targets = [{k: v.to(DEVICE) for k, v in t.items()} for t in targets]
 
@@ -118,28 +103,21 @@ def train():
 
             optimizer.zero_grad()
             losses.backward()
-            
-            # 添加梯度裁剪
-            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-            
             optimizer.step()
 
             total_loss += losses.item()
-            
-        # 更新学习率
-        scheduler.step()
-        
+
+        # 验证阶段
         val_loss = evaluate(model, val_dataloader)
+
         duration = time.time() - start
-        print(f"[Epoch {epoch+1:02d}] Loss: {total_loss:.4f}  Val Loss: {val_loss:.4f} Time: {duration:.2f}s LR: {scheduler.get_last_lr()[0]:.6f}")
-        
+        print(f"[Epoch {epoch+1:02d}] Train Loss: {total_loss/len(train_dataloader):.4f} "
+              f"Val Loss: {val_loss:.4f} Time: {duration:.2f}s")
+
         # 保存最佳模型
         if val_loss < best_val_loss:
             best_val_loss = val_loss
             torch.save(model.state_dict(), "best_model.pth")
-            
-        if (epoch + 1) % 10 == 0:
-            torch.save(model.state_dict(), f"model_epoch_{epoch+1}.pth")
-
+            print(f"Saved new best model with validation loss: {val_loss:.4f}")
 if __name__ == "__main__":
     train()

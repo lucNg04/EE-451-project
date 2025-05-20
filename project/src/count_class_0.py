@@ -1,7 +1,7 @@
 import os
 from collections import Counter
 
-label_dir = "../data/obj_train_data"  # 替换成你的路径
+label_dir = "../../project1/data/obj_train_data"  # 替换成你的路径
 counts = Counter()
 
 for file in os.listdir(label_dir):
